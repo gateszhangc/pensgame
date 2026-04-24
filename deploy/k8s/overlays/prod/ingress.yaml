@@ -3,6 +3,7 @@ kind: Ingress
 metadata:
   name: pensgame
   annotations:
+    acme.cert-manager.io/http01-edit-in-place: "true"
     cert-manager.io/cluster-issuer: letsencrypt-prod
     cert-manager.io/issue-temporary-certificate: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
@@ -13,6 +14,7 @@ spec:
     - secretName: pensgame-live-tls
       hosts:
         - pensgame.lol
+        - www.pensgame.lol
   rules:
     - host: pensgame.lol
       http:
@@ -24,25 +26,6 @@ spec:
                 name: pensgame
                 port:
                   number: 80
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: pensgame-www-redirect
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    cert-manager.io/issue-temporary-certificate: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/permanent-redirect: https://pensgame.lol
-    nginx.ingress.kubernetes.io/permanent-redirect-code: "308"
-spec:
-  ingressClassName: nginx
-  tls:
-    - secretName: pensgame-www-tls
-      hosts:
-        - www.pensgame.lol
-  rules:
     - host: www.pensgame.lol
       http:
         paths:

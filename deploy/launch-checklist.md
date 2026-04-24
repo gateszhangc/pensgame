@@ -28,9 +28,9 @@ Route:
 ## DNS And Search
 
 - DNS is managed in Cloudflare for `pensgame.lol`.
-- Apex `A` record should point to `89.167.61.228`.
+- Apex `A` record should point to `144.91.77.245`.
 - `www` should be a `CNAME` to `pensgame.lol`.
-- The ingress redirects `www` to apex and forces HTTPS.
+- The ingress serves both `pensgame.lol` and `www.pensgame.lol` on the same certificate and forces HTTPS.
 - Google Search Console uses the domain property `sc-domain:pensgame.lol`.
 - Google account: `gateszhang92@gmail.com`
 - `https://pensgame.lol/sitemap.xml` must be submitted to GSC.
@@ -57,7 +57,7 @@ kubectl apply -f deploy/argocd/application.yaml
 export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 export WEBAPP_LAUNCH_ANALYTICS_SKILL_DIR="${WEBAPP_LAUNCH_ANALYTICS_SKILL_DIR:-$CODEX_HOME/skills/webapp-launch-analytics}"
 export PRIMARY_URL="https://pensgame.lol"
-export DNS_TARGET_APEX_IP="89.167.61.228"
+export DNS_TARGET_APEX_IP="144.91.77.245"
 export DNS_TARGET_WWW="pensgame.lol"
 export PORKBUN_NS_MODE="api"
 export SKIP_GA4="true"
