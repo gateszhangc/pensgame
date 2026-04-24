@@ -1,8 +1,8 @@
-const http = require("http");
-const fs = require("fs");
-const path = require("path");
+const http = require("node:http");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const host = process.env.HOSTNAME || "0.0.0.0";
+const host = "0.0.0.0";
 const port = Number(process.env.PORT || 3000);
 const root = __dirname;
 
@@ -14,11 +14,10 @@ const contentTypes = {
   ".json": "application/json; charset=utf-8",
   ".manifest": "application/manifest+json; charset=utf-8",
   ".png": "image/png",
-  ".svg": "image/svg+xml",
-  ".txt": "text/plain; charset=utf-8",
+  ".svg": "image/svg+xml; charset=utf-8",
   ".ttf": "font/ttf",
+  ".txt": "text/plain; charset=utf-8",
   ".webmanifest": "application/manifest+json; charset=utf-8",
-  ".webp": "image/webp",
   ".xml": "application/xml; charset=utf-8"
 };
 
@@ -80,5 +79,5 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Static site listening on http://${host}:${port}`);
+  console.log(`Pens Game static site listening on http://${host}:${port}`);
 });

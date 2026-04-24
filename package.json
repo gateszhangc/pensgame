@@ -1,14 +1,16 @@
 {
-  "name": "artemis-2-wallpaper",
+  "name": "pensgame",
   "version": "1.0.0",
   "private": true,
-  "description": "Static Artemis II wallpaper site built from publicly released NASA imagery.",
+  "description": "Static Pittsburgh Penguins game hub with build-time NHL schedule data.",
   "scripts": {
     "start": "node server.js",
+    "brand:generate": "node scripts/generate_brand_assets.js",
+    "data:fetch": "node scripts/fetch_penguins_schedule.js",
     "test": "playwright test",
     "test:browser": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2"
+    "@playwright/test": "^1.59.1"
   }
 }

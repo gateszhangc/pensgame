@@ -3,8 +3,5 @@
 node_modules
 playwright-report
 test-results
-tasks
-brand
-scripts
-tests
-npm-debug.log*
+coverage
+.DS_Store

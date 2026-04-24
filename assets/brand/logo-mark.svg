@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Pens Game logo mark</title>
+  <desc id="desc">An original black and gold monogram inspired by speed lanes, black ice, and editorial sports graphics.</desc>
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe28a"/>
+      <stop offset="45%" stop-color="#ffbf2f"/>
+      <stop offset="100%" stop-color="#b97700"/>
+    </linearGradient>
+    <linearGradient id="ice" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#eef7ff"/>
+      <stop offset="100%" stop-color="#8cc8ff"/>
+    </linearGradient>
+    <linearGradient id="shadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10141d"/>
+      <stop offset="100%" stop-color="#05070b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="220" fill="#05070b"/>
+  <path d="M168 154h346c76 0 161 17 219 70c55 49 82 114 82 183c0 62-20 112-60 149c-20 18-42 32-67 42c36 12 66 31 90 60c27 32 41 73 41 121c0 69-27 126-80 170c-56 46-131 69-224 69H168z" fill="url(#gold)"/>
+  <path d="M326 272h186c48 0 86 9 116 29c33 22 49 54 49 95c0 44-17 77-51 99c-30 20-69 30-114 30H326z" fill="url(#shadow)"/>
+  <path d="M326 592h211c48 0 84 10 109 31c27 22 40 52 40 90c0 38-13 67-40 86c-25 18-61 27-107 27H326z" fill="url(#shadow)"/>
+  <path d="M548 160L357 870H231l191-710z" fill="url(#ice)" opacity=".96"/>
+  <path d="M579 328h176" stroke="#fff3c2" stroke-width="22" stroke-linecap="square" opacity=".75"/>
+  <path d="M593 685h162" stroke="#d8ebff" stroke-width="22" stroke-linecap="square" opacity=".65"/>
+  <path d="M174 145L94 915" stroke="#ffbf2f" stroke-width="12" opacity=".38"/>
+  <path d="M824 129L742 897" stroke="#8cc8ff" stroke-width="8" opacity=".25"/>
+</svg>

@@ -7,19 +7,51 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: artemis-2-wallpaper-release
+  group: pensgame-release
   cancel-in-progress: true
 
 env:
-  IMAGE_NAME: registry.144.91.77.245.sslip.io/dokploy-fleet-artemis-2-wallpaper-artemis-2-wallpaper
-  FLEET_REPO: gateszhangc/k8s-fleet
-  FLEET_TENANT_PATH: tenants/artemis-2-wallpaper/20-artemis-2-wallpaper-deployment.yaml
+  APP_NAME: pensgame
+  BUILD_NAMESPACE: webapp-build
+  IMAGE_REPOSITORY: registry.144.91.77.245.sslip.io/pensgame
+  KUSTOMIZE_PATH: deploy/k8s/overlays/prod/kustomization.yaml
+  PRIMARY_URL: https://pensgame.lol
 
 jobs:
-  build-and-push:
+  test:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npm test
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate Kustomize overlay
+        run: kubectl kustomize deploy/k8s/overlays/prod >/tmp/pensgame-rendered.yaml
+
+  build-image-in-k8s:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
@@ -31,68 +63,162 @@ jobs:
         id: meta
         run: echo "image_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
 
-      - name: Log in to registry
-        uses: docker/login-action@v3
-        with:
-          registry: registry.144.91.77.245.sslip.io
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Configure build kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          printf '%s' "$KUBECONFIG_B64" | base64 --decode > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl version --client
+          kubectl -n "$BUILD_NAMESPACE" get serviceaccount github-build-trigger
+          kubectl -n "$BUILD_NAMESPACE" get serviceaccount kaniko-builder
 
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.image_tag }}
+      - name: Run Kubernetes image build job
+        env:
+          GITHUB_SOURCE_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+        run: |
+          set -euo pipefail
 
-  update-fleet:
-    needs: build-and-push
+          short_sha="${GITHUB_SHA:0:12}"
+          build_job="${APP_NAME}-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          source_secret="${APP_NAME}-source-${short_sha}"
+
+          cleanup() {
+            kubectl -n "$BUILD_NAMESPACE" delete job "$build_job" --ignore-not-found=true >/dev/null 2>&1 || true
+            kubectl -n "$BUILD_NAMESPACE" delete secret "$source_secret" --ignore-not-found=true >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          kubectl -n "$BUILD_NAMESPACE" delete job "$build_job" --ignore-not-found=true
+          kubectl -n "$BUILD_NAMESPACE" create secret generic "$source_secret" \
+            --from-literal=github-token="$GITHUB_SOURCE_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          cat <<YAML | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: ${build_job}
+            namespace: ${BUILD_NAMESPACE}
+            labels:
+              app.kubernetes.io/name: ${APP_NAME}
+              app.kubernetes.io/part-of: remote-image-build
+          spec:
+            backoffLimit: 0
+            ttlSecondsAfterFinished: 3600
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: ${APP_NAME}
+                  app.kubernetes.io/part-of: remote-image-build
+              spec:
+                restartPolicy: Never
+                serviceAccountName: kaniko-builder
+                volumes:
+                  - name: source
+                    emptyDir: {}
+                  - name: registry-config
+                    secret:
+                      secretName: webapp-registry-push
+                      items:
+                        - key: .dockerconfigjson
+                          path: config.json
+                initContainers:
+                  - name: clone-source
+                    image: alpine/git:2.47.2
+                    env:
+                      - name: GITHUB_TOKEN
+                        valueFrom:
+                          secretKeyRef:
+                            name: ${source_secret}
+                            key: github-token
+                      - name: GIT_REPO
+                        value: https://github.com/${GITHUB_REPOSITORY}.git
+                      - name: GIT_SHA
+                        value: ${GITHUB_SHA}
+                    command:
+                      - /bin/sh
+                      - -ec
+                      - |
+                        git config --global url."https://x-access-token:\${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+                        git clone --no-tags --depth 1 "\${GIT_REPO}" /workspace
+                        cd /workspace
+                        git fetch --no-tags --depth 1 origin "\${GIT_SHA}"
+                        git checkout --detach "\${GIT_SHA}"
+                    volumeMounts:
+                      - name: source
+                        mountPath: /workspace
+                containers:
+                  - name: kaniko
+                    image: gcr.io/kaniko-project/executor:v1.23.2
+                    args:
+                      - --context=dir:///workspace
+                      - --dockerfile=/workspace/Dockerfile
+                      - --destination=${IMAGE_REPOSITORY}:${IMAGE_TAG}
+                      - --snapshot-mode=redo
+                      - --use-new-run
+                    volumeMounts:
+                      - name: source
+                        mountPath: /workspace
+                      - name: registry-config
+                        mountPath: /kaniko/.docker
+          YAML
+
+          if ! kubectl -n "$BUILD_NAMESPACE" wait --for=condition=complete "job/${build_job}" --timeout=30m; then
+            kubectl -n "$BUILD_NAMESPACE" describe "job/${build_job}" || true
+            kubectl -n "$BUILD_NAMESPACE" logs "job/${build_job}" --all-containers=true --tail=200 || true
+            exit 1
+          fi
+
+          kubectl -n "$BUILD_NAMESPACE" logs "job/${build_job}" --all-containers=true --tail=120
+
+  update-kustomize-tag:
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
+    needs: build-image-in-k8s
     runs-on: ubuntu-latest
     steps:
-      - name: Check out fleet repo
+      - name: Check out code
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.FLEET_REPO }}
-          token: ${{ secrets.FLEET_REPO_PAT }}
-          path: k8s-fleet
+          fetch-depth: 0
 
-      - name: Update deployment image tag
+      - name: Update image tag
         env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-image-in-k8s.outputs.image_tag }}
         run: |
           python3 - <<'PY'
           import os
           import re
           from pathlib import Path
 
-          path = Path("k8s-fleet") / os.environ["FLEET_TENANT_PATH"]
+          path = Path(os.environ["KUSTOMIZE_PATH"])
           content = path.read_text()
           updated, count = re.subn(
-              r"(^\s*image:\s*registry\.144\.91\.77\.245\.sslip\.io/dokploy-fleet-artemis-2-wallpaper-artemis-2-wallpaper:).*$",
-              rf"\1{os.environ['IMAGE_TAG']}",
+              r"(^\s*newTag:\s*).*$",
+              lambda match: f"{match.group(1)}{os.environ['IMAGE_TAG']}",
               content,
               count=1,
               flags=re.MULTILINE,
           )
           if count != 1:
-              raise SystemExit("Expected exactly one image line to update in the fleet deployment manifest.")
+              raise SystemExit("expected exactly one newTag entry in kustomization.yaml")
           path.write_text(updated)
           PY
 
-      - name: Commit fleet update
+      - name: Commit manifest update
         env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          IMAGE_TAG: ${{ needs.build-image-in-k8s.outputs.image_tag }}
         run: |
-          cd k8s-fleet
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$FLEET_TENANT_PATH"
-          if git diff --cached --quiet; then
+          if git diff --quiet -- "$KUSTOMIZE_PATH"; then
             exit 0
           fi
-          git commit -m "chore: release artemis-2-wallpaper ${IMAGE_TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$KUSTOMIZE_PATH"
+          git commit -m "chore: release ${IMAGE_TAG} [skip ci]"
           git push origin HEAD:main

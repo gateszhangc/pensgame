@@ -1,19 +1,18 @@
 {
-  "name": "Artemis II Wallpaper",
-  "short_name": "Artemis II",
-  "description": "Independent editorial collection of Artemis II wallpapers using publicly released NASA imagery with source credit.",
+  "name": "Pens Game",
+  "short_name": "Pens Game",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050912",
-  "theme_color": "#050912",
+  "background_color": "#07090d",
+  "theme_color": "#07090d",
   "icons": [
     {
-      "src": "/assets/brand/favicon.png",
+      "src": "assets/brand/favicon.png",
       "sizes": "256x256",
       "type": "image/png"
     },
     {
-      "src": "/assets/brand/apple-touch-icon.png",
+      "src": "assets/brand/apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png"
     }

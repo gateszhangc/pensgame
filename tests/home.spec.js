@@ -1,36 +1,32 @@
 const { test, expect } = require("@playwright/test");
 
-test.describe("Artemis II wallpaper site", () => {
-  test("desktop homepage renders key content and filters wallpapers", async ({ page }) => {
+test.describe("Pens Game site", () => {
+  test("desktop homepage renders metadata, featured game, and schedule groups", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page).toHaveTitle(/Artemis II Wallpaper/i);
-    await expect(page.locator("h1")).toHaveText("Artemis II Wallpaper");
-    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /publicly released NASA mission imagery/i);
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://artemis-2-wallpaper.lol/");
+    await expect(page).toHaveTitle(/Pens Game Schedule/i);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://pensgame.lol/");
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /Pittsburgh Penguins game hub/i);
+    await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute("content", "Pens Game");
+    await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute("content", /black and gold social card/i);
+    await expect(page.getByRole("heading", { name: /Pens Game Schedule, Time, and Official Penguins Links/i })).toBeVisible();
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+    await expect(page.locator("[data-featured-card]")).toContainText(/Next game|Latest result/);
+    await expect(page.getByText(/Independent, unofficial fan-made guide/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Common Pens Game questions/i })).toBeVisible();
 
-    const wallpaperCards = page.locator(".wallpaper-card");
-    await expect(wallpaperCards).toHaveCount(10);
-    await expect(page.getByText("Not an official NASA website.")).toBeVisible();
+    const scheduleCards = page.locator(".schedule-card");
+    await expect(scheduleCards.first()).toBeVisible();
+    expect(await scheduleCards.count()).toBeGreaterThan(10);
 
-    await page.getByRole("button", { name: "Posters" }).click();
-    await expect(page.locator(".wallpaper-card:not([hidden])")).toHaveCount(2);
-    await expect(page.locator("[data-results-count]")).toHaveText("Showing 2 wallpapers");
+    const monthGroups = page.locator(".month-group");
+    expect(await monthGroups.count()).toBeGreaterThan(1);
 
-    await page.getByRole("button", { name: "All" }).click();
-    await expect(page.locator(".wallpaper-card:not([hidden])")).toHaveCount(10);
-
-    for (const image of await page.locator("img").all()) {
-      await image.scrollIntoViewIfNeeded();
-    }
-
-    const imagesLoaded = await page.evaluate(() =>
-      Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0)
-    );
-    expect(imagesLoaded).toBe(true);
+    const structuredDataTags = page.locator('script[type="application/ld+json"]');
+    expect(await structuredDataTags.count()).toBeGreaterThanOrEqual(3);
   });
 
-  test("mobile layout stays within viewport and keeps gallery accessible", async ({ browser }) => {
+  test("mobile layout stays within viewport and keeps official links reachable", async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: 390, height: 844 },
       isMobile: true
@@ -38,18 +34,17 @@ test.describe("Artemis II wallpaper site", () => {
     const page = await context.newPage();
 
     await page.goto("/");
-
-    await expect(page.locator("h1")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Explore the Collection" })).toBeVisible();
-    await page.getByRole("link", { name: "Explore the Collection" }).click();
-    await expect(page.locator("#gallery")).toBeInViewport();
+    await expect(page.locator("body")).toHaveAttribute("data-state", "ready");
+    await page.getByRole("link", { name: "Official Links" }).click();
+    await expect(page.locator("#watch")).toBeInViewport();
 
     const overflow = await page.evaluate(() => {
       return document.documentElement.scrollWidth - window.innerWidth;
     });
     expect(overflow).toBeLessThanOrEqual(1);
 
-    await expect(page.locator(".wallpaper-card")).toHaveCount(10);
+    await expect(page.getByRole("link", { name: "Official schedule" }).first()).toBeVisible();
+    await expect(page.locator(".schedule-card").first()).toBeVisible();
     await context.close();
   });
 });
