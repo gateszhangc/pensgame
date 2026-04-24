@@ -7,4 +7,4 @@ resources:
 images:
   - name: registry.144.91.77.245.sslip.io/pensgame
     newName: registry.144.91.77.245.sslip.io/pensgame
-    newTag: 5be7889e8bd71ae34ad44e6c81d7c2a37431cf88
+    newTag: 4f14e4ed46f6955e643ceca637f79a1065decb56
